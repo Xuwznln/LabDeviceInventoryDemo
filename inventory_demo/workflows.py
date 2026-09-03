@@ -1,8 +1,9 @@
 """库存演示的默认工作流：入库 → 出库成功 → 出库不足（任务在派发前失败）→ 盘点。
 
-出库节点用 ``ctx.run(..., inventory=[...])`` 声明库存需求：调度器在任务启动时对整张任务
-all-or-nothing 预留，不足则任务直接 failed（``plan_not_executable``），设备不会被调用；
-预留成功的任务在动作开始前由执行面扣减（出库），分液器回报扣减后的 lot 数量。
+出库节点用 ``ctx.run(..., inventory=[...])`` 声明库存需求（``InventoryRequirement`` 是节点输入，
+不是设备参数）：调度器在任务启动时对整张任务 all-or-nothing 预留，不足则任务直接 failed
+（``plan_not_executable``），设备不会被调用；预留成功后调度器把权威解析出的出库内容按需求 key
+注入同名动作参数（这里是 ``dispense(water=...)``），执行面在动作开始前扣减，分液器回报扣减后的 lot。
 """
 
 from unilabos.registry.workflows import WorkflowBuildContext, workflow
@@ -46,9 +47,10 @@ def restock_water(ctx: WorkflowBuildContext) -> None:
     tags=["inventory-demo", "outbound"],
 )
 def dispense_ok(ctx: WorkflowBuildContext) -> None:
+    # 参数只给 target；试剂本身来自库存需求 water（调度器预留后注入 dispense(water=...)）
     ctx.run(
         "reagent_dispenser/dispense",
-        {"volume": DISPENSE_OK_VOLUME, "unit": WATER_UNIT, "target": "beaker-1"},
+        {"target": "beaker-1"},
         name="分液 40 ml",
         inventory=[_water(DISPENSE_OK_VOLUME)],
     )
@@ -63,7 +65,7 @@ def dispense_ok(ctx: WorkflowBuildContext) -> None:
 def dispense_short(ctx: WorkflowBuildContext) -> None:
     ctx.run(
         "reagent_dispenser/dispense",
-        {"volume": DISPENSE_SHORT_VOLUME, "unit": WATER_UNIT, "target": "beaker-2"},
+        {"target": "beaker-2"},
         name="分液 500 ml",
         inventory=[_water(DISPENSE_SHORT_VOLUME)],
     )

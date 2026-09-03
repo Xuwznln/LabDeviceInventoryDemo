@@ -19,11 +19,16 @@ What it demonstrates (all through the web-style workflow submission path):
   (`total/available += 100`).
 - **Outbound with reservation** (`reagent_dispenser.dispense` + node
   `inventory` declaration): the workflow step declares
-  `{"kind": "reagent", "lot_uuid": …, "quantity": 40, "unit": "ml"}`. The
+  `{"key": "water", "kind": "reagent", "lot_uuid": …, "quantity": 40, "unit": "ml"}`.
+  `InventoryRequirement` is a node-level input, not a device parameter: the
   scheduler reserves the whole task all-or-nothing when it starts
-  (`available -= 40`, `reserved += 40`), the execution plane consumes the
-  reservation right before the action starts (`total -= 40`, `reserved -= 40`)
-  and the dispenser reports the lot *after* deduction: `60 / 60 / 0`.
+  (`available -= 40`, `reserved += 40`), injects the authority's resolved
+  allocation into the action argument named by the requirement `key`
+  (`dispense(water={"quantity": 40, "unit": "ml", "lots": [{"lot_uuid": …,
+  "quantity": 40}]})`), the execution plane consumes the reservation right
+  before the action starts (`total -= 40`, `reserved -= 40`) and the dispenser
+  reports the lot *after* deduction: `60 / 60 / 0`. The workflow never tells
+  the device which lot or how much — the backend does.
 - **Insufficient stock**: a 500 ml requirement against a 60 ml lot fails at
   reservation time — the task ends `failed` with
   `error_info[0] = {code: "plan_not_executable", message: "requirement 'water'
@@ -98,7 +103,7 @@ Numbers above assume a fresh database; every extra `restock` adds another
 ```python
 ctx.run(
     "reagent_dispenser/dispense",
-    {"volume": 40.0, "unit": "ml"},
+    {"target": "beaker-1"},
     inventory=[{"key": "water", "kind": "reagent", "lot_uuid": WATER_LOT_UUID,
                 "quantity": 40.0, "unit": "ml"}],
 )
@@ -106,7 +111,11 @@ ctx.run(
 
 `inventory` is validated as `InventoryRequirement` at declaration time and
 lands in the node's `meta_data.inventory_requirements`; `lot_uuid` pins one
-lot, `template_uuid` lets the authority pick lots FIFO.
+lot, `template_uuid` lets the authority pick lots FIFO. At dispatch time the
+scheduler puts the resolved allocation into the action argument named by
+`key` — a `material` requirement arrives as a ResourceSlot reference
+(`{"uuid": material_uuid, ...}`), a `reagent` requirement as
+`{"quantity", "unit", "lots": [...]}`.
 
 ## Layout
 
@@ -115,7 +124,7 @@ graph/inventory_demo.json          one graph shared by both backends (store + di
 inventory_demo/
   reagents.py                      demo_reagent_water resource + fixed lot uuid / unit
   reagent_store.py                 restock (inbound) / stock_report
-  dispenser.py                     dispense: consumes the node's reservation, reports the lot after deduction
+  dispenser.py                     dispense(water=<allocation injected by the scheduler>): reports the lot after deduction
   workflows.py                     @workflow templates (restock, dispense ok, dispense short, audit)
   smoke.py                         terminating real-runtime proof driven through the management API
 tests/test_hostlink_smoke.py       HostLink integration assertions

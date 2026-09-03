@@ -63,7 +63,17 @@ def assert_dispense_ok(proof: dict[str, Any]) -> None:
 
     assert proof["task_status"] == "succeeded", proof
     dispense = _return_value(proof, 0)
-    assert dispense["volume"] == 40.0 and dispense["target"] == "beaker-1", dispense
+    # 体积与 lot 不是工作流参数：来自调度器按需求 key=water 注入的权威分配
+    assert dispense["volume"] == 40.0 and dispense["unit"] == "ml" and dispense["target"] == "beaker-1", dispense
+    assert dispense["lots"] == [
+        {
+            "lot_uuid": WATER_LOT_UUID,
+            "dispensed": 40.0,
+            "quantity_total": 60.0,
+            "quantity_available": 60.0,
+            "quantity_reserved": 0.0,
+        }
+    ], dispense
     # 执行面在动作开始前已消耗预留：total 已减 40，reserved 已归零
     assert dispense["lot_total_after"] == 60.0, dispense
     assert dispense["lot_reserved_after"] == 0.0, dispense

@@ -13,9 +13,12 @@
 - **添加试剂**（`reagent_store.restock`）：与网页"添加试剂"背后的 `POST /api/v1/materials/lots/inbound`
   同一调用——向固定 lot 入库 100 ml 水（`total/available += 100`）。
 - **带预留的出库**（`reagent_dispenser.dispense` + 节点 `inventory` 声明）：工作流步骤声明
-  `{"kind": "reagent", "lot_uuid": …, "quantity": 40, "unit": "ml"}`。任务启动时调度器对整张任务
-  all-or-nothing 预留（`available -= 40, reserved += 40`），动作开始前执行面消耗预留
-  （`total -= 40, reserved -= 40`），分液器回报**扣减后**的 lot：`60 / 60 / 0`。
+  `{"key": "water", "kind": "reagent", "lot_uuid": …, "quantity": 40, "unit": "ml"}`。
+  `InventoryRequirement` 是节点级输入，不是设备参数：任务启动时调度器对整张任务
+  all-or-nothing 预留（`available -= 40, reserved += 40`），把权威解析出的分配注入需求 `key`
+  同名的动作参数（`dispense(water={"quantity": 40, "unit": "ml", "lots": [{"lot_uuid": …, "quantity": 40}]})`），
+  动作开始前执行面消耗预留（`total -= 40, reserved -= 40`），分液器回报**扣减后**的 lot：`60 / 60 / 0`。
+  工作流从不告诉设备用哪个 lot、用多少——那是后端解析出来的。
 - **数量不足**：对 60 ml 的 lot 提 500 ml 需求，在预留阶段失败——任务 `failed`，
   `error_info[0] = {code: "plan_not_executable", message: "requirement 'water' is short by 440 ml"}`，
   节点运行 `canceled`，设备根本没被调用，lot 原样不动（失败的预留不留任何 reserved）。
@@ -80,14 +83,16 @@ python -m unilabos --backend ros2 --disable_hostlink --skip_env_check \
 ```python
 ctx.run(
     "reagent_dispenser/dispense",
-    {"volume": 40.0, "unit": "ml"},
+    {"target": "beaker-1"},
     inventory=[{"key": "water", "kind": "reagent", "lot_uuid": WATER_LOT_UUID,
                 "quantity": 40.0, "unit": "ml"}],
 )
 ```
 
 `inventory` 在声明时按 `InventoryRequirement` 校验，落到节点的 `meta_data.inventory_requirements`；
-`lot_uuid` 指定一瓶，`template_uuid` 则由权威按 FIFO 选 lot。
+`lot_uuid` 指定一瓶，`template_uuid` 则由权威按 FIFO 选 lot。派发时调度器把解析出的分配放进
+`key` 同名的动作参数：`material` 需求到达设备时是 ResourceSlot 引用（`{"uuid": material_uuid, ...}`），
+`reagent` 需求是 `{"quantity", "unit", "lots": [...]}`。
 
 ## 目录
 
@@ -96,7 +101,7 @@ graph/inventory_demo.json          两种 backend 共用的一份图（试剂库
 inventory_demo/
   reagents.py                      demo_reagent_water 资源 + 固定 lot uuid / 单位
   reagent_store.py                 restock（入库）/ stock_report（盘点）
-  dispenser.py                     dispense：消耗节点预留，回报扣减后的 lot
+  dispenser.py                     dispense(water=<调度器注入的分配>)：回报扣减后的 lot
   workflows.py                     @workflow 模板（入库、出库成功、出库不足、盘点）
   smoke.py                         经管理 API 驱动的有终止条件真实运行时证明
 tests/test_hostlink_smoke.py       HostLink 集成断言
