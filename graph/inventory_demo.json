@@ -1,0 +1,43 @@
+{
+    "nodes": [
+        {
+            "id": "reagent_store",
+            "uuid": "6b1d5f2e-3c84-4a17-8f52-000000001001",
+            "name": "试剂库",
+            "parent": null,
+            "type": "device",
+            "template_name": "reagent_store_demo",
+            "sites_initialized": true,
+            "sites": [],
+            "pose": {
+                "position": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                }
+            },
+            "config": {},
+            "data": {}
+        },
+        {
+            "id": "reagent_dispenser",
+            "uuid": "6b1d5f2e-3c84-4a17-8f52-000000001002",
+            "name": "分液器",
+            "parent": null,
+            "type": "device",
+            "template_name": "reagent_dispenser_demo",
+            "sites_initialized": true,
+            "sites": [],
+            "pose": {
+                "position": {
+                    "x": 300,
+                    "y": 0,
+                    "z": 0
+                }
+            },
+            "config": {},
+            "data": {}
+        }
+    ],
+    "links": []
+}
