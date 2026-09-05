@@ -187,17 +187,37 @@ def _api_request(port: int, path: str, payload: dict[str, Any] | None = None) ->
     return body
 
 
+def _actions_online(port: int, action_names: set[str]) -> bool:
+    """执行端点快照已上报这些动作能力：调度器此刻才能把 job 派发到设备（ROS2 节点起得慢）。"""
+
+    endpoints = _api_request(port, "/runtime/endpoints?state=online&limit=100")
+    reported = {
+        capability["action_name"]
+        for endpoint in endpoints
+        for capability in endpoint.get("action_capabilities", [])
+        if capability.get("state", "active") == "active"
+    }
+    return action_names <= reported
+
+
 def _wait_management_api(port: int, process: subprocess.Popen[Any], deadline: float) -> None:
+    """等管理 API 就绪、执行面在线且两台设备的动作已上报，工作流才能派发到设备。"""
+
     while time.monotonic() < deadline:
         if process.poll() is not None:
             raise RuntimeError("runtime process exited before the management API came up")
         try:
-            if _api_request(port, "/health").get("status") == "ok":
+            health = _api_request(port, "/health")
+            if (
+                health.get("status") == "ok"
+                and health.get("execution") == "ready"
+                and _actions_online(port, {"restock", "stock_report", "dispense"})
+            ):
                 return
-        except (urllib.error.URLError, OSError):
+        except (urllib.error.URLError, OSError, RuntimeError, AttributeError, KeyError, TypeError):
             pass
         time.sleep(0.3)
-    raise RuntimeError("管理 API 未在时限内就绪")
+    raise RuntimeError("管理 API / 设备动作能力未在时限内就绪")
 
 
 def _find_workflow(port: int, name: str, deadline: float) -> dict[str, Any]:
