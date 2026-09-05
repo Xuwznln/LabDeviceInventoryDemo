@@ -19,7 +19,7 @@ What it demonstrates (all through the web-style workflow submission path):
   (`total/available += 100`).
 - **Outbound with reservation** (`reagent_dispenser.dispense` + node
   `inventory` declaration): the workflow step declares
-  `{"key": "water", "kind": "reagent", "lot_uuid": …, "quantity": 40, "unit": "ml"}`.
+  `{"key": "water", "kind": "lot", "lot_uuid": …, "quantity": 40, "unit": "ml"}`.
   `InventoryRequirement` is a node-level input, not a device parameter: the
   scheduler reserves the whole task all-or-nothing when it starts
   (`available -= 40`, `reserved += 40`), injects the authority's resolved
@@ -104,7 +104,7 @@ Numbers above assume a fresh database; every extra `restock` adds another
 ctx.run(
     "reagent_dispenser/dispense",
     {"target": "beaker-1"},
-    inventory=[{"key": "water", "kind": "reagent", "lot_uuid": WATER_LOT_UUID,
+    inventory=[{"key": "water", "kind": "lot", "lot_uuid": WATER_LOT_UUID,
                 "quantity": 40.0, "unit": "ml"}],
 )
 ```
@@ -114,7 +114,7 @@ lands in the node's `meta_data.inventory_requirements`; `lot_uuid` pins one
 lot, `template_uuid` lets the authority pick lots FIFO. At dispatch time the
 scheduler puts the resolved allocation into the action argument named by
 `key` — a `material` requirement arrives as a ResourceSlot reference
-(`{"uuid": material_uuid, ...}`), a `reagent` requirement as
+(`{"uuid": material_uuid, ...}`), a `lot` requirement as
 `{"quantity", "unit", "lots": [...]}`.
 
 ## Layout

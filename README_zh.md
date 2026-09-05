@@ -13,7 +13,7 @@
 - **添加试剂**（`reagent_store.restock`）：与网页"添加试剂"背后的 `POST /api/v1/materials/lots/inbound`
   同一调用——向固定 lot 入库 100 ml 水（`total/available += 100`）。
 - **带预留的出库**（`reagent_dispenser.dispense` + 节点 `inventory` 声明）：工作流步骤声明
-  `{"key": "water", "kind": "reagent", "lot_uuid": …, "quantity": 40, "unit": "ml"}`。
+  `{"key": "water", "kind": "lot", "lot_uuid": …, "quantity": 40, "unit": "ml"}`。
   `InventoryRequirement` 是节点级输入，不是设备参数：任务启动时调度器对整张任务
   all-or-nothing 预留（`available -= 40, reserved += 40`），把权威解析出的分配注入需求 `key`
   同名的动作参数（`dispense(water={"quantity": 40, "unit": "ml", "lots": [{"lot_uuid": …, "quantity": 40}]})`），
@@ -84,7 +84,7 @@ python -m unilabos --backend ros2 --disable_hostlink --skip_env_check \
 ctx.run(
     "reagent_dispenser/dispense",
     {"target": "beaker-1"},
-    inventory=[{"key": "water", "kind": "reagent", "lot_uuid": WATER_LOT_UUID,
+    inventory=[{"key": "water", "kind": "lot", "lot_uuid": WATER_LOT_UUID,
                 "quantity": 40.0, "unit": "ml"}],
 )
 ```
@@ -92,7 +92,7 @@ ctx.run(
 `inventory` 在声明时按 `InventoryRequirement` 校验，落到节点的 `meta_data.inventory_requirements`；
 `lot_uuid` 指定一瓶，`template_uuid` 则由权威按 FIFO 选 lot。派发时调度器把解析出的分配放进
 `key` 同名的动作参数：`material` 需求到达设备时是 ResourceSlot 引用（`{"uuid": material_uuid, ...}`），
-`reagent` 需求是 `{"quantity", "unit", "lots": [...]}`。
+`lot` 需求是 `{"quantity", "unit", "lots": [...]}`。
 
 ## 目录
 

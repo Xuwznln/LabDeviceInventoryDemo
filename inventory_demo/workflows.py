@@ -25,7 +25,7 @@ def _water(quantity: float) -> dict:
 
     return {
         "key": "water",
-        "kind": "reagent",
+        "kind": "lot",
         "lot_uuid": WATER_LOT_UUID,
         "quantity": quantity,
         "unit": WATER_UNIT,
