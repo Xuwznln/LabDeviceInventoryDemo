@@ -53,7 +53,7 @@ def restock_water(ctx: WorkflowBuildContext) -> None:
         "reagent_store/restock",
         {"quantity": RESTOCK_QUANTITY, "unit": WATER_UNIT},
         name="入库 100 ml",
-        description="向固定 uuid 的水 lot 入库 100 ml（POST /materials/lots/inbound 的设备侧等价）。",
+        description="向固定 uuid 的水 lot 入库 100 ml（POST /inventory/commands 中 inventory.inbound kind=lot 的设备侧等价）。",
     )
 
 

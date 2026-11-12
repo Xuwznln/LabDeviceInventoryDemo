@@ -1,6 +1,7 @@
 """试剂库 — 面向 Materials Authority 的库存入库与盘点。
 
-入库（``restock``）就是网页"添加试剂"按钮背后的 ``POST /api/v1/materials/lots/inbound``：
+入库（``restock``）就是网页"添加试剂"按钮背后的 ``POST /api/v1/inventory/commands``
+（``inventory.inbound``，kind=lot）的设备侧等价：
 按模板名找到权威模板，向固定 lot 追加数量（同一 lot 重复入库累加）。盘点
 （``stock_report``）读该模板下全部 lot 的 总量 / 可用 / 已预留 三个数字——它们分别在
 入库、调度器预留、动作开始扣减三个时刻变化：

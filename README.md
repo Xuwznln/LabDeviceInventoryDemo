@@ -14,9 +14,9 @@ What it demonstrates (all through the web-style workflow submission path):
 - **Reagent template from the registry**: `@resource(id="demo_reagent_water")`
   is synced into the Materials Authority as a resource template at host startup;
   measurable stock hangs under it as **lots** (`InventoryLotInbound`).
-- **Adding reagent** (`reagent_store.restock`): the same call as the web UI's
-  `POST /api/v1/materials/lots/inbound` — 100 ml water into a fixed lot
-  (`total/available += 100`).
+- **Adding reagent** (`reagent_store.restock`): the device-side equivalent of the web
+  UI's inbound, `POST /api/v1/inventory/commands` with an `inventory.inbound` command
+  (`kind: lot`) — 100 ml water into a fixed lot (`total/available += 100`).
 - **Outbound with reservation** (`reagent_dispenser.dispense` + node
   `inventory` declaration): the workflow step declares
   `{"key": "water", "kind": "lot", "lot_uuid": …, "quantity": 40, "unit": "ml"}`.
@@ -43,8 +43,23 @@ inventory facts, in the Materials Authority.
 
 ## Install from GitHub
 
+Requires the unified Uni-Lab-OS core (dev architecture with the V1.0 HTTP API) on
+**CPython 3.14**, plus its companion wheels: the maintained PyLabRobot fork
+`1.0.0b1+unilabos…` and `opentrons-shared-data 10.1.0+unilabos.np2.1`. Build them with the
+core's `scripts/build_wheel_release.py --dependencies-only` and install with `--find-links`.
+ROS 2 runs use RoboStack Jazzy built for cp314 (`ros2-distro-mutex` 0.20).
+
+With a Host running (`unilab --backend hostlink`), install through its management API. The
+spec is the GitHub URL with an optional `@<commit-sha>`:
+
 ```bash
-unilab package install https://github.com/Xuwznln/LabDeviceInventoryDemo --ref <commit-sha>
+unilab package install https://github.com/Xuwznln/LabDeviceInventoryDemo@<commit-sha> --wait
+```
+
+Or install the distribution into the current Python environment (this is what CI does):
+
+```bash
+python -m pip install "git+https://github.com/Xuwznln/LabDeviceInventoryDemo@<commit-sha>"
 ```
 
 For local development:
@@ -67,8 +82,9 @@ python -m inventory_demo.smoke --backend ros2 --timeout 120
 The smoke boots the real runtime (`unilab -g graph/inventory_demo.json`, which
 also reports the `@workflow` templates to the local Workflow Authority) and
 replays the web UI's calls (`POST /api/v1/workflow-tasks`, `GET
-/api/v1/workflow-tasks/{uuid}/node-runs`, `GET /api/v1/materials/lots/{lot}`)
-against a fresh database:
+/api/v1/workflow-tasks/{uuid}/node-runs`, `GET /api/v1/inventory/lots/{lot}`)
+against a fresh database. Every `/api/v1` JSON response is the V1 envelope
+`{"code": 0, "data": ...}` and writes carry the control token in `X-UniLab-Token`:
 
 1. **"试剂入库：水 100 ml"** — `restock(quantity=100)`: lot `100 / 100 / 0`.
 2. **"出库成功：分液 40 ml"** — `dispense(volume=40)` with a 40 ml requirement,
@@ -94,7 +110,7 @@ python -m unilabos --backend ros2 --disable_hostlink --skip_env_check \
 ```
 
 Then open the management UI, run "试剂入库：水 100 ml" once, run "出库成功：分液 40 ml"
-and "出库不足：分液 500 ml", and watch the lot at `/api/v1/materials/lots`.
+and "出库不足：分液 500 ml", and watch the lot at `/api/v1/inventory/lots`.
 Numbers above assume a fresh database; every extra `restock` adds another
 100 ml to the same lot.
 
