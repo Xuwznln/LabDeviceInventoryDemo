@@ -10,8 +10,9 @@
 
 - **注册表试剂模板**：`@resource(id="demo_reagent_water")` 在 host 启动时同步成 Materials Authority
   的资源模板；可计量库存以 **lot** 为单位挂在模板下（`InventoryLotInbound`）。
-- **添加试剂**（`reagent_store.restock`）：与网页"添加试剂"背后的 `POST /api/v1/materials/lots/inbound`
-  同一调用——向固定 lot 入库 100 ml 水（`total/available += 100`）。
+- **添加试剂**（`reagent_store.restock`）：网页"添加试剂"的设备侧等价——网页走
+  `POST /api/v1/inventory/commands` 的 `inventory.inbound` 命令（`kind: lot`）——向固定 lot 入库
+  100 ml 水（`total/available += 100`）。
 - **带预留的出库**（`reagent_dispenser.dispense` + 节点 `inventory` 声明）：工作流步骤声明
   `{"key": "water", "kind": "lot", "lot_uuid": …, "quantity": 40, "unit": "ml"}`。
   `InventoryRequirement` 是节点级输入，不是设备参数：任务启动时调度器对整张任务
@@ -28,8 +29,21 @@
 
 ## 从 GitHub 安装
 
+需要统一版 Uni-Lab-OS 核心（dev 架构 + V1.0 HTTP API），仅支持 **CPython 3.14**；配套 wheel
+（PyLabRobot 维护分支 `1.0.0b1+unilabos…` 与 `opentrons-shared-data 10.1.0+unilabos.np2.1`）
+用核心的 `scripts/build_wheel_release.py --dependencies-only` 构建，安装时经 `--find-links` 提供。
+ROS 2 运行使用为 cp314 构建的 RoboStack Jazzy（`ros2-distro-mutex` 0.20）。
+
+Host 运行时（`unilab --backend hostlink`）经管理 API 安装，来源是 GitHub 地址，可附 `@<commit-sha>`：
+
 ```bash
-unilab package install https://github.com/Xuwznln/LabDeviceInventoryDemo --ref <commit-sha>
+unilab package install https://github.com/Xuwznln/LabDeviceInventoryDemo@<commit-sha> --wait
+```
+
+也可以直接装进当前 Python 环境（CI 即如此）：
+
+```bash
+python -m pip install "git+https://github.com/Xuwznln/LabDeviceInventoryDemo@<commit-sha>"
 ```
 
 本地开发可使用：
@@ -51,7 +65,8 @@ python -m inventory_demo.smoke --backend ros2 --timeout 120
 
 smoke 启动真实运行时（`unilab -g graph/inventory_demo.json`，启动时把 `@workflow` 模板上报到本机
 Workflow Authority），在全新数据库上复现网页的调用（`POST /api/v1/workflow-tasks`、
-`GET /api/v1/workflow-tasks/{uuid}/node-runs`、`GET /api/v1/materials/lots/{lot}`）：
+`GET /api/v1/workflow-tasks/{uuid}/node-runs`、`GET /api/v1/inventory/lots/{lot}`；`/api/v1` 的 JSON
+响应一律是 V1 信封 `{"code": 0, "data": ...}`，写请求在 `X-UniLab-Token` 请求头携带控制面 token）：
 
 1. **「试剂入库：水 100 ml」**——`restock(quantity=100)`：lot `100 / 100 / 0`。
 2. **「出库成功：分液 40 ml」**——`dispense(volume=40)` 带 40 ml 需求，再 `stock_report`：
@@ -75,7 +90,7 @@ python -m unilabos --backend ros2 --disable_hostlink --skip_env_check \
 ```
 
 然后打开管理页面：先运行一次「试剂入库：水 100 ml」，再运行「出库成功：分液 40 ml」和
-「出库不足：分液 500 ml」，在 `/api/v1/materials/lots` 观察 lot 数字。上面的数字以全新数据库为前提，
+「出库不足：分液 500 ml」，在 `/api/v1/inventory/lots` 观察 lot 数字。上面的数字以全新数据库为前提，
 每多跑一次 `restock` 同一 lot 就多 100 ml。
 
 ## 在工作流步骤上声明库存需求

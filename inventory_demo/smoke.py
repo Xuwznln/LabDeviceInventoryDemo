@@ -2,12 +2,13 @@
 
 网页上的操作序列在这里逐一复现：
 
-1. ``GET  /api/v1/workflows``                 找到 host 启动时上报的 @workflow 模板；
+1. ``GET  /api/v1/registry/workflow-templates`` 找到 host 启动时上报的 @workflow 模板，
+   ``POST /api/v1/workflows/from-template`` 实例化；
 2. ``POST /api/v1/workflow-tasks``            「试剂入库」→「出库成功」→「出库不足」→「库存盘点」；
 3. ``GET  /api/v1/workflow-tasks/{uuid}``      等终态；出库不足的任务应 failed 且
    ``error_info[0] = {code: plan_not_executable, message: ... short by 440 ml}``；
 4. ``GET  /api/v1/workflow-tasks/{uuid}/node-runs`` 读节点结果（分液器回报扣减后的 lot）；
-5. ``GET  /api/v1/materials/lots/{lot_uuid}``  直接向权威核对 lot 的 total / available / reserved。
+5. ``GET  /api/v1/inventory/lots/{lot_uuid}``  直接向权威核对 lot 的 total / available / reserved。
 
 预期数字（每次 smoke 用全新数据库）：入库后 100/100/0 → 分液 40 后 60/60/0 →
 500 ml 需求被拒绝后仍 60/60/0（失败的预留不留痕）。
@@ -176,6 +177,21 @@ def _base_command(repo_root: Path, database_root: Path, management_port: int, ba
     return command
 
 
+#: 统一 Core 的业务码：Host 子进程尚未接入控制面（启动 / 安静点重启）时，Host 专有路由
+#: （如 ``/runtime/endpoints``）返回 HTTP 200 + ``{"code": 5001}``，就绪等待应继续轮询。
+SERVICE_UNAVAILABLE = 5001
+
+
+class ManagementAPIError(RuntimeError):
+    """管理 API 返回了非 0 业务码（V1 信封 ``{"code", "error": {"msg"}}``）。"""
+
+    def __init__(self, path: str, body: dict[str, Any]) -> None:
+        super().__init__(f"管理 API {path} 返回错误: {body}")
+        self.path = path
+        self.code = body.get("code")
+        self.body = body
+
+
 def _api_request(port: int, path: str, payload: dict[str, Any] | None = None) -> Any:
     """请求管理 API；workflow 风格 {"code":0,"data":...} 自动解包，其余路由原样返回。"""
 
@@ -188,7 +204,7 @@ def _api_request(port: int, path: str, payload: dict[str, Any] | None = None) ->
         body = json.loads(response.read().decode("utf-8"))
     if isinstance(body, dict) and "code" in body:
         if body["code"] != 0:
-            raise RuntimeError(f"管理 API {path} 返回错误: {body}")
+            raise ManagementAPIError(path, body)
         return body.get("data")
     return body
 
@@ -242,7 +258,7 @@ def _find_workflow(port: int, name: str, deadline: float) -> dict[str, Any]:
 
 
 def _lot(port: int) -> dict[str, Any]:
-    lot = _api_request(port, f"/materials/lots/{WATER_LOT_UUID}")
+    lot = _api_request(port, f"/inventory/lots/{WATER_LOT_UUID}")
     return {
         "lot_uuid": lot["lot_uuid"],
         "quantity_total": float(lot["quantity_total"]),
@@ -265,7 +281,9 @@ def run_workflow(port: int, name: str, deadline: float, *, expect_decision_free:
         if status in TERMINAL:
             break
         if expect_decision_free:
-            held = [item for item in _api_request(port, "/error-decisions")["items"] if item.get("task_id") == task_uuid]
+            held = [
+                item for item in _api_request(port, "/error-decisions")["decisions"] if item.get("task_id") == task_uuid
+            ]
             if held:
                 raise AssertionError(f"任务 {name!r} 的 attempt 进入了错误决策链: {held[0]}")
         time.sleep(0.2)
