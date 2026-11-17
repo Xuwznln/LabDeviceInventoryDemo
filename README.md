@@ -84,7 +84,7 @@ also reports the `@workflow` templates to the local Workflow Authority) and
 replays the web UI's calls (`POST /api/v1/workflow-tasks`, `GET
 /api/v1/workflow-tasks/{uuid}/node-runs`, `GET /api/v1/inventory/lots/{lot}`)
 against a fresh database. Every `/api/v1` JSON response is the V1 envelope
-`{"code": 0, "data": ...}` and writes carry the control token in `X-UniLab-Token`:
+`{"code": 0, "data": ...}`:
 
 1. **"试剂入库：水 100 ml"** — `restock(quantity=100)`: lot `100 / 100 / 0`.
 2. **"出库成功：分液 40 ml"** — `dispense(volume=40)` with a 40 ml requirement,
