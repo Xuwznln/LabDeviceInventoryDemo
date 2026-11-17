@@ -66,7 +66,7 @@ python -m inventory_demo.smoke --backend ros2 --timeout 120
 smoke 启动真实运行时（`unilab -g graph/inventory_demo.json`，启动时把 `@workflow` 模板上报到本机
 Workflow Authority），在全新数据库上复现网页的调用（`POST /api/v1/workflow-tasks`、
 `GET /api/v1/workflow-tasks/{uuid}/node-runs`、`GET /api/v1/inventory/lots/{lot}`；`/api/v1` 的 JSON
-响应一律是 V1 信封 `{"code": 0, "data": ...}`，写请求在 `X-UniLab-Token` 请求头携带控制面 token）：
+响应一律是 V1 信封 `{"code": 0, "data": ...}`）：
 
 1. **「试剂入库：水 100 ml」**——`restock(quantity=100)`：lot `100 / 100 / 0`。
 2. **「出库成功：分液 40 ml」**——`dispense(volume=40)` 带 40 ml 需求，再 `stock_report`：
