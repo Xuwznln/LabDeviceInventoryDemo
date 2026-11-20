@@ -87,7 +87,7 @@ against a fresh database. Every `/api/v1` JSON response is the V1 envelope
 `{"code": 0, "data": ...}`:
 
 1. **"试剂入库：水 100 ml"** — `restock(quantity=100)`: lot `100 / 100 / 0`.
-2. **"出库成功：分液 40 ml"** — `dispense(volume=40)` with a 40 ml requirement,
+2. **"出库成功：分液 40 ml"** — `dispense(target="beaker-1")` with a 40 ml `water` requirement,
    then `stock_report`: the dispenser sees `lot_total_after = 60`,
    `lot_reserved_after = 0`; the report confirms `60 / 60 / 0`.
 3. **"出库不足：分液 500 ml"** — a 500 ml requirement: task `failed`,
@@ -109,7 +109,8 @@ python -m unilabos --backend ros2 --disable_hostlink --skip_env_check \
   -g ./graph/inventory_demo.json
 ```
 
-Then open the management UI, run "试剂入库：水 100 ml" once, run "出库成功：分液 40 ml"
+Then open a frontend connected to this backend (`unilab` serves no UI itself; the page at
+`http://127.0.0.1:8002/` links OpenLab), run "试剂入库：水 100 ml" once, run "出库成功：分液 40 ml"
 and "出库不足：分液 500 ml", and watch the lot at `/api/v1/inventory/lots`.
 Numbers above assume a fresh database; every extra `restock` adds another
 100 ml to the same lot.
