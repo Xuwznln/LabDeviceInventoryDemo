@@ -69,7 +69,7 @@ Workflow Authority），在全新数据库上复现网页的调用（`POST /api/
 响应一律是 V1 信封 `{"code": 0, "data": ...}`）：
 
 1. **「试剂入库：水 100 ml」**——`restock(quantity=100)`：lot `100 / 100 / 0`。
-2. **「出库成功：分液 40 ml」**——`dispense(volume=40)` 带 40 ml 需求，再 `stock_report`：
+2. **「出库成功：分液 40 ml」**——`dispense(target="beaker-1")` 带 40 ml 的 `water` 需求，再 `stock_report`：
    分液器读到 `lot_total_after = 60`、`lot_reserved_after = 0`；盘点确认 `60 / 60 / 0`。
 3. **「出库不足：分液 500 ml」**——500 ml 需求：任务 `failed`，`plan_not_executable` / `short by 440 ml`，
    节点运行 `canceled`，lot 仍是 `60 / 60 / 0`。
@@ -89,7 +89,8 @@ python -m unilabos --backend ros2 --disable_hostlink --skip_env_check \
   -g ./graph/inventory_demo.json
 ```
 
-然后打开管理页面：先运行一次「试剂入库：水 100 ml」，再运行「出库成功：分液 40 ml」和
+然后打开连接本后端的前端（`unilab` 本身不提供页面，`http://127.0.0.1:8002/` 上有 OpenLab 入口）：
+先运行一次「试剂入库：水 100 ml」，再运行「出库成功：分液 40 ml」和
 「出库不足：分液 500 ml」，在 `/api/v1/inventory/lots` 观察 lot 数字。上面的数字以全新数据库为前提，
 每多跑一次 `restock` 同一 lot 就多 100 ml。
 
